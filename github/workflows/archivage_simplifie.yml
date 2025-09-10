@@ -1,0 +1,15 @@
+# exemple de départ
+on: [push]
+permissions:
+  contents: write
+# plus loin dans les ‘steps’...
+  - name: XXX teste creation nouveau fichier
+    run: date > rapport.txt
+  # push
+  - name: XXX commmit et push
+  run: |
+    git config --global user.name dt231159
+    git config --global user.email thao.dujardin@etu.univ-lehavre.fr
+    git add rapport.txt
+    git commit -m "test push de rapport.txt"
+    git push
