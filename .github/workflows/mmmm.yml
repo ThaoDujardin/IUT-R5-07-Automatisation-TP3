@@ -12,13 +12,58 @@ jobs:
       - name: Récupération du dépôt
         uses: actions/checkout@v4
 
-      - name: Création du fichier rapport.txt
-        run: date > rapport.txt
+      - name: Définir la date
+        id: date
+        run: echo "date=$(date +'%Y%m%d-%H%M%S')" >> $GITHUB_OUTPUT
 
-      - name: Commit et push du fichier
+      - name: Création de l'archive archive_${{ steps.date.outputs.date }}.zip
+        run: |
+          zip -r archive_${{ steps.date.outputs.date }}.zip *.java
+
+      - name: Vérification de l'intégrité de l'archive
+        run: |
+          unzip -t archive_${{ steps.date.outputs.date }}.zip > verif.txt
+
+      - name: Lister le contenu de l'archive
+        run: |
+          unzip -l archive_${{ steps.date.outputs.date }}.zip > contenu.txt
+
+      - name: Trouver l'archive précédente
+        id: prev
+        run: |
+          ls -1tr archive_*.zip | grep -v "${{ steps.date.outputs.date }}" | tail -n 1 > prev.txt || true
+          if [ -s prev.txt ]; then
+            echo "prev=$(cat prev.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "prev=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Lister le contenu de l'archive précédente (si elle existe)
+        if: steps.prev.outputs.prev != ''
+        run: |
+          unzip -l "${{ steps.prev.outputs.prev }}" > contenu_prev.txt
+
+      - name: Générer rapport_${{ steps.date.outputs.date }}.txt
+        run: |
+          echo "Date de génération : $(date)" > rapport_${{ steps.date.outputs.date }}.txt
+          echo "" >> rapport_${{ steps.date.outputs.date }}.txt
+          echo "Vérification de l'intégrité de l'archive :" >> rapport_${{ steps.date.outputs.date }}.txt
+          cat verif.txt >> rapport_${{ steps.date.outputs.date }}.txt
+          echo "" >> rapport_${{ steps.date.outputs.date }}.txt
+          echo "Contenu de l'archive :" >> rapport_${{ steps.date.outputs.date }}.txt
+          cat contenu.txt >> rapport_${{ steps.date.outputs.date }}.txt
+          if [ -f contenu_prev.txt ]; then
+            echo "" >> rapport_${{ steps.date.outputs.date }}.txt
+            echo "Différences avec l'archive précédente :" >> rapport_${{ steps.date.outputs.date }}.txt
+            diff -u contenu_prev.txt contenu.txt >> rapport_${{ steps.date.outputs.date }}.txt || true
+          fi
+          # Pour compatibilité, on copie aussi en rapport.txt
+          cp rapport_${{ steps.date.outputs.date }}.txt rapport.txt
+
+      - name: Commit et push des fichiers
         run: |
           git config --global user.name dt231159
           git config --global user.email thao.dujardin@etu.univ-lehavre.fr
-          git add rapport.txt
-          git commit -m "Mise à jour automatique de rapport.txt" || echo "Aucun changement à commit"
+          git add archive_${{ steps.date.outputs.date }}.zip rapport_${{ steps.date.outputs.date }}.txt rapport.txt
+          git commit -m "Archivage et rapport automatique du ${{ steps.date.outputs.date }}" || echo "Aucun changement à commit"
           git push
